@@ -1,0 +1,1542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Flip Fall" />
+  <meta name="theme-color" content="#071018" />
+  <meta name="application-name" content="Flip Fall Flat" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" type="image/png" href="./favicon.png" />
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+  <title>Flip Fall Flat</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Bungee&family=Nunito:wght@600;800&display=swap');
+    :root {
+      --ink: #0b1c2c;
+      --foam: #e8f6ff;
+      --accent: #ffb703;
+      --good: #2ec4b6;
+      --bad: #e63946;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #071018; touch-action: none; }
+    canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+    #ui {
+      position: fixed; inset: 0; pointer-events: none;
+      font-family: Nunito, system-ui, sans-serif; color: var(--foam);
+    }
+    #overlay, #card, #card button, #touchPad, #touchPad button, #menuFab, #splash, #installBar {
+      pointer-events: auto;
+    }
+    #splash {
+      position: fixed; inset: 0; z-index: 40;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background:
+        radial-gradient(circle at 50% 20%, #1a5f78 0%, transparent 42%),
+        linear-gradient(180deg, #0b2a3c 0%, #071018 55%, #0a3040 100%);
+      color: #e8f6ff; text-align: center; padding: 24px;
+    }
+    #splash.gone { opacity: 0; pointer-events: none; transition: opacity .4s ease; }
+    #splash img {
+      width: 112px; height: 112px; border-radius: 28px;
+      box-shadow: 0 18px 40px rgba(0,0,0,.4); margin-bottom: 18px;
+    }
+    #splash h2 { font-family: Bungee, cursive; font-size: 28px; }
+    #splash h2 span { color: #ffb703; }
+    #splash p { opacity: .8; margin: 8px 0 22px; max-width: 280px; }
+    #splash .play { width: min(280px, 86vw); }
+    #installBar {
+      display: none; width: 100%; margin: 8px 0 0;
+      font-family: Nunito, sans-serif; font-weight: 800;
+      color: #082018; background: linear-gradient(#9be7de, #2ec4b6);
+      border: 0; border-radius: 14px; padding: 12px;
+    }
+    #statusBar {
+      display: none; position: absolute; top: 0; left: 0; right: 0;
+      height: env(safe-area-inset-top); background: rgba(7,16,24,.55);
+    }
+    #title {
+      position: absolute; top: 16px; left: 22px;
+      font-family: Bungee, cursive; font-size: 24px; letter-spacing: 1px;
+      text-shadow: 0 4px 0 #062033, 0 8px 24px rgba(0,0,0,.45);
+    }
+    #title span { color: var(--accent); }
+    #hud {
+      position: absolute; top: 16px; right: 22px; text-align: right;
+      font-weight: 800; font-size: 16px; line-height: 1.45;
+      text-shadow: 0 2px 8px #000;
+    }
+    #sceneTag {
+      position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+      font-family: Bungee, cursive; font-size: 15px; letter-spacing: 1px;
+      background: rgba(7,16,24,.55); border: 1px solid rgba(255,255,255,.12);
+      padding: 6px 14px; border-radius: 999px; text-shadow: none;
+    }
+    #hint {
+      position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
+      background: rgba(7,16,24,.62); backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,.12); border-radius: 999px;
+      padding: 9px 18px; font-size: 13px; white-space: nowrap;
+    }
+    kbd {
+      display: inline-block; background: #123; border: 1px solid #3a5;
+      border-bottom-width: 3px; border-radius: 6px; padding: 0 6px;
+      font-family: inherit; font-weight: 800; font-size: 12px;
+    }
+    #banner {
+      position: absolute; top: 40%; left: 50%; transform: translate(-50%,-50%);
+      font-family: Bungee, cursive; font-size: 48px; text-align: center;
+      text-shadow: 0 6px 0 #062033, 0 16px 40px rgba(0,0,0,.5);
+      opacity: 0; transition: opacity .25s ease; pointer-events: none; max-width: 90vw;
+    }
+    #banner.show { opacity: 1; }
+    #banner.good { color: var(--good); }
+    #banner.bad { color: var(--bad); }
+    #banner.unlock { color: #ffd166; }
+    #banner .sub { display: block; font-family: Nunito, sans-serif; font-size: 18px; margin-top: 8px; letter-spacing: 0; }
+    #power {
+      position: absolute; bottom: 68px; left: 50%; transform: translateX(-50%);
+      width: 260px; height: 14px; background: rgba(255,255,255,.12);
+      border-radius: 99px; overflow: hidden; opacity: 0; transition: opacity .2s;
+      border: 1px solid rgba(255,255,255,.2);
+    }
+    #power.on { opacity: 1; }
+    #power > i {
+      display: block; height: 100%; width: 0%;
+      background: linear-gradient(90deg, #2ec4b6, #ffb703, #e63946);
+    }
+    #trickBar {
+      position: absolute; left: 18px; bottom: 70px; display: flex; flex-direction: column; gap: 6px;
+    }
+    .trickChip {
+      background: rgba(7,16,24,.62); border: 1px solid rgba(255,255,255,.14);
+      border-radius: 10px; padding: 5px 10px; font-size: 12px; font-weight: 800;
+      min-width: 168px;
+    }
+    .trickChip.active { border-color: var(--accent); color: var(--accent); }
+    .trickChip.lock { opacity: .45; }
+    #overlay {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      background: radial-gradient(ellipse at center, rgba(8,24,40,.62), rgba(4,10,16,.88));
+      pointer-events: auto; overflow: auto; padding: 24px;
+    }
+    #overlay.hidden { display: none; }
+    #card {
+      width: min(980px, 96vw); background: linear-gradient(180deg, #14344f, #0a1a2a);
+      border: 1px solid rgba(255,255,255,.14); border-radius: 22px; padding: 26px 28px 22px;
+      box-shadow: 0 30px 80px rgba(0,0,0,.45);
+    }
+    #card h1 { font-family: Bungee, cursive; font-size: 28px; margin-bottom: 4px; }
+    #card h1 span { color: var(--accent); }
+    #card .lead { opacity: .88; margin: 6px 0 16px; line-height: 1.5; }
+    h2.sec { font-size: 13px; letter-spacing: 1.4px; text-transform: uppercase; opacity: .7; margin: 14px 0 8px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+    .pick, .tpick {
+      pointer-events: auto; cursor: pointer; text-align: left;
+      background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12);
+      border-radius: 14px; padding: 12px 12px 10px; color: var(--foam);
+      font-family: Nunito, sans-serif;
+    }
+    .pick:hover, .tpick:hover { border-color: rgba(255,183,3,.55); }
+    .pick.on, .tpick.on { border-color: var(--accent); background: rgba(255,183,3,.12); }
+    .pick.lock, .tpick.lock { opacity: .48; cursor: not-allowed; }
+    .pick b, .tpick b { display: block; font-size: 15px; }
+    .pick small, .tpick small { opacity: .75; font-size: 12px; }
+    .row { display: flex; gap: 10px; margin-top: 16px; }
+    button.play {
+      pointer-events: auto; cursor: pointer; flex: 1;
+      font-family: Bungee, cursive; font-size: 18px; color: #082018;
+      background: linear-gradient(#ffe08a, #ffb703); border: 0; border-radius: 14px;
+      padding: 13px; box-shadow: 0 6px 0 #c98400;
+    }
+    button.play:active { transform: translateY(3px); box-shadow: 0 3px 0 #c98400; }
+    button.ghost {
+      pointer-events: auto; cursor: pointer; flex: 0 0 160px;
+      font-family: Nunito, sans-serif; font-weight: 800; font-size: 15px; color: var(--foam);
+      background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.16);
+      border-radius: 14px;
+    }
+    #pauseHint { position: absolute; top: 52px; left: 22px; font-size: 12px; opacity: .8; text-shadow: 0 2px 6px #000; }
+    #menuFab, #touchPad { display: none; }
+    #touchPad {
+      position: absolute; left: 0; right: 0; bottom: 0;
+      padding: 10px 12px calc(12px + env(safe-area-inset-bottom));
+      gap: 8px; align-items: stretch; justify-content: space-between;
+    }
+    #touchPad button {
+      border: 1px solid rgba(255,255,255,.18); border-radius: 16px;
+      background: rgba(8,18,28,.72); color: #fff; font-family: Nunito, sans-serif;
+      font-weight: 800; min-height: 64px; font-size: 15px;
+    }
+    #btnJump {
+      flex: 1.4; background: linear-gradient(#ffe08a, #ffb703); color: #082018;
+      font-family: Bungee, cursive; font-size: 16px;
+    }
+    #menuFab {
+      position: absolute; top: calc(10px + env(safe-area-inset-top)); right: 10px;
+      width: 44px; height: 44px; border-radius: 12px; border: 1px solid rgba(255,255,255,.2);
+      background: rgba(8,18,28,.7); color: #fff; font-weight: 800;
+    }
+    .row.sticky {
+      position: sticky; bottom: 0; background: linear-gradient(#0a1a2a, #0a1a2a);
+      padding-top: 10px; margin-top: 12px;
+    }
+    @media (max-width: 900px), (pointer: coarse) {
+      #title { font-size: 16px; top: 8px; left: 10px; }
+      #pauseHint, #hint, #trickBar { display: none !important; }
+      #sceneTag { top: 8px; font-size: 11px; padding: 4px 10px; max-width: 52vw; overflow: hidden; text-overflow: ellipsis; }
+      #hud { top: 8px; right: 58px; font-size: 12px; }
+      #banner { font-size: 28px; top: 34%; }
+      #banner .sub { font-size: 14px; }
+      #power { bottom: 96px; width: min(240px, 70vw); }
+      #card { width: 100%; padding: 16px 14px 12px; border-radius: 16px; }
+      #card h1 { font-size: 22px; }
+      .grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+      .pick, .tpick { padding: 10px 8px; }
+      #overlay { align-items: flex-end; padding: 8px; }
+      #touchPad { display: flex; }
+      #menuFab { display: block; }
+      #statusBar { display: block; }
+      body.app-standalone #pauseHint { display: none !important; }
+    }
+    @media all and (display-mode: standalone) {
+      #statusBar { display: block; }
+    }
+  </style>
+</head>
+<body>
+  <div id="splash">
+    <img src="./icon-192.png" alt="Flip Fall Flat" />
+    <h2>FLIP <span>FALL</span> FLAT</h2>
+    <p>Hold jump, flip in the air, hit the water. Install it to the home screen like an app.</p>
+    <button type="button" class="play" id="splashDive">OPEN GAME</button>
+    <button type="button" id="installBar">Install app</button>
+  </div>
+  <div id="ui">
+    <div id="statusBar"></div>
+    <div id="title">FLIP <span>FALL</span> FLAT</div>
+    <div id="pauseHint">Esc menu · 1-6 stage · Q/E trick</div>
+    <div id="sceneTag">Hidden Cove · Springboard</div>
+    <div id="hud">
+      <div>Score: <b id="score">0</b></div>
+      <div>Best: <b id="best">0</b></div>
+      <div>Coins: <b id="coins">0</b></div>
+      <div>Height: <b id="height">8 m</b></div>
+      <div>Flips: <b id="flips">0.0</b></div>
+    </div>
+    <div id="trickBar"></div>
+    <div id="hint">Hold <kbd>Space</kbd> to jump · <kbd>A</kbd>/<kbd>D</kbd> spin · <kbd>S</kbd> tuck · <kbd>W</kbd> layout</div>
+    <div id="power"><i id="powerbar"></i></div>
+    <div id="banner"></div>
+    <div id="overlay">
+      <div id="card">
+        <h1>FLIP <span>FALL</span> FLAT</h1>
+        <p class="lead">Ragdoll cliff diving. Pick a stage, board and trick. New spots and moves unlock with your best score.</p>
+        <h2 class="sec">Stages</h2>
+        <div class="grid" id="sceneGrid"></div>
+        <h2 class="sec">Boards on this stage</h2>
+        <div class="grid" id="boardGrid"></div>
+        <h2 class="sec">Tricks</h2>
+        <div class="grid" id="trickGrid"></div>
+        <button type="button" id="installBar2" class="ghost" style="width:100%;margin-top:10px;display:none">Install on phone</button>
+        <div class="row sticky">
+          <button type="button" class="ghost" id="resetProg">Reset</button>
+          <button type="button" class="play" id="startBtn">DIVE</button>
+        </div>
+      </div>
+    </div>
+    <button type="button" id="menuFab" aria-label="Menu">☰</button>
+    <div id="touchPad">
+      <button type="button" id="btnLeft">◀</button>
+      <button type="button" id="btnTuck">TUCK</button>
+      <button type="button" id="btnJump">HOLD<br>JUMP</button>
+      <button type="button" id="btnRight">▶</button>
+    </div>
+  </div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.1/build/three.module.js",
+      "cannon-es": "https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js"
+    }
+  }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import * as CANNON from 'cannon-es';
+
+    const $ = (id) => document.getElementById(id);
+    const IS_MOBILE = window.matchMedia('(max-width: 900px), (pointer: coarse)').matches
+      || ('ontouchstart' in window && window.innerWidth < 1100);
+    const IS_STANDALONE = window.matchMedia('(display-mode: standalone)').matches
+      || window.navigator.standalone === true;
+    if (IS_STANDALONE) document.body.classList.add('app-standalone');
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    }
+
+    let deferredInstall = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredInstall = e;
+      ['installBar', 'installBar2'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'block';
+      });
+    });
+    async function installApp() {
+      if (deferredInstall) {
+        deferredInstall.prompt();
+        await deferredInstall.userChoice;
+        deferredInstall = null;
+        ['installBar', 'installBar2'].forEach((id) => {
+          const el = document.getElementById(id);
+          if (el) el.style.display = 'none';
+        });
+        return;
+      }
+      const isiOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      alert(isiOS
+        ? 'On iPhone: tap Share, then Add to Home Screen.'
+        : 'Use your browser menu and choose Install app / Add to Home Screen.');
+    }
+    function hideSplash() {
+      const splash = document.getElementById('splash');
+      if (!splash) return;
+      splash.classList.add('gone');
+      setTimeout(() => { splash.style.display = 'none'; }, 420);
+    }
+    window.addEventListener('load', () => {
+      document.getElementById('splashDive')?.addEventListener('click', hideSplash);
+      document.getElementById('installBar')?.addEventListener('click', installApp);
+      document.getElementById('installBar2')?.addEventListener('click', installApp);
+      if (IS_STANDALONE) hideSplash();
+      const isiOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      if (isiOS && !IS_STANDALONE) {
+        const bar = document.getElementById('installBar');
+        if (bar) {
+          bar.style.display = 'block';
+          bar.textContent = 'Add to Home Screen';
+        }
+      }
+    });
+    const saveKey = 'fff_save_v2';
+    const defaultSave = () => ({
+      best: 0, coins: 0, scenes: ['cala'], tricks: ['mortal'], boards: {},
+    });
+    let save = defaultSave();
+    try { save = { ...defaultSave(), ...JSON.parse(localStorage.getItem(saveKey) || '{}') }; } catch {}
+    const persist = () => localStorage.setItem(saveKey, JSON.stringify(save));
+
+    const SCENES = [
+      {
+        id: 'cala', name: 'Hidden Cove', need: 0,
+        blurb: 'Cliff and turquoise water. The classic dive.',
+        sky: '#7ec8e3', fog: '#9ad0e6', fogNear: 28, fogFar: 90,
+        water: 0x1b6f88, sand: 0xc2a26b, rock: 0xb8b1a4,
+        gravity: -16.5, wind: 0, pool: { x: 8, z: 0, w: 16, d: 11 },
+        boards: [
+          { id: 'trampolin', name: 'Springboard', type: 'spring', x: -0.2, y: 8, z: 0, kick: 1, spin: 1 },
+          { id: 'risco', name: 'Cliff ledge', type: 'cliff', x: -1.2, y: 14, z: 0, kick: 0.85, spin: 0.9 },
+          { id: 'faro', name: 'Lighthouse lip', type: 'high', x: -2.0, y: 22, z: 0, kick: 0.7, spin: 1.15 },
+        ],
+      },
+      {
+        id: 'muelle', name: "Fisherman's Pier", need: 350,
+        blurb: 'Wet planks and a rocking boat.',
+        sky: '#6aa8c8', fog: '#8ebfd4', fogNear: 26, fogFar: 85,
+        water: 0x165e78, sand: 0x8a7a5a, rock: 0x6d6458,
+        gravity: -16.2, wind: 0.6, pool: { x: 9, z: 0, w: 18, d: 10 },
+        boards: [
+          { id: 'muelle-bajo', name: 'Low pier', type: 'pier', x: 0.4, y: 6.5, z: 0, kick: 1.05, spin: 0.95 },
+          { id: 'grua', name: 'Harbor crane', type: 'crane', x: -1.6, y: 16, z: 0, kick: 0.8, spin: 1.2 },
+          { id: 'barco', name: 'Boat bow', type: 'boat', x: 1.2, y: 11, z: 0, kick: 1.1, spin: 1.05, wobble: 0.35 },
+        ],
+      },
+      {
+        id: 'selva', name: 'Jumping Jungle', need: 1100,
+        blurb: 'Vines, a hollow trunk and a tight pool.',
+        sky: '#87c98a', fog: '#9ed4a0', fogNear: 22, fogFar: 70,
+        water: 0x1b6a52, sand: 0x4a6a32, rock: 0x3d4a2c,
+        gravity: -15.6, wind: 0.2, pool: { x: 7.2, z: 0, w: 11, d: 8 },
+        boards: [
+          { id: 'liana', name: 'Vine', type: 'vine', x: -0.6, y: 10, z: 0, kick: 1.25, spin: 1.3 },
+          { id: 'ceiba', name: 'Kapok tree', type: 'tree', x: -1.4, y: 17, z: 0, kick: 0.9, spin: 1.1 },
+          { id: 'cascada', name: 'Waterfall jump', type: 'high', x: -2.2, y: 24, z: 0, kick: 0.75, spin: 1.25 },
+        ],
+      },
+      {
+        id: 'azotea', name: 'Rooftops', need: 2400,
+        blurb: 'Hotel pool and a construction crane.',
+        sky: '#6b8cba', fog: '#8aa3c4', fogNear: 30, fogFar: 95,
+        water: 0x2a8ca8, sand: 0x8a8f96, rock: 0x6a7078,
+        gravity: -17.2, wind: 1.1, pool: { x: 8.5, z: 0, w: 10, d: 8 },
+        boards: [
+          { id: 'tejado', name: 'Rooftop', type: 'roof', x: -0.4, y: 12, z: 0, kick: 0.95, spin: 1 },
+          { id: 'grua-city', name: 'Tower crane', type: 'crane', x: -2.4, y: 26, z: 0, kick: 0.65, spin: 1.35 },
+          { id: 'helipuerto', name: 'Helipad', type: 'high', x: -1.0, y: 20, z: 0, kick: 0.8, spin: 1.1 },
+        ],
+      },
+      {
+        id: 'castillo', name: 'Castle Moat', need: 4200,
+        blurb: 'Battlements, a drawbridge and a tight moat.',
+        sky: '#7a8aa0', fog: '#9aa6b4', fogNear: 26, fogFar: 80,
+        water: 0x2a4a58, sand: 0x6a5a48, rock: 0x8a8478,
+        gravity: -16.8, wind: 0.4, pool: { x: 7.8, z: 0, w: 9, d: 8 },
+        boards: [
+          { id: 'puente', name: 'Drawbridge', type: 'bridge', x: 0.2, y: 9, z: 0, kick: 1, spin: 0.9, wobble: 0.2 },
+          { id: 'almena', name: 'Battlement', type: 'cliff', x: -1.5, y: 18, z: 0, kick: 0.82, spin: 1.15 },
+          { id: 'torre', name: 'Keep tower', type: 'high', x: -2.6, y: 28, z: 0, kick: 0.62, spin: 1.4 },
+        ],
+      },
+      {
+        id: 'iceberg', name: 'Ice Floes', need: 6800,
+        blurb: 'Slick ice, crosswind and freezing water.',
+        sky: '#c9e7f4', fog: '#d7eef8', fogNear: 24, fogFar: 75,
+        water: 0x3a8aa8, sand: 0xd8e6ee, rock: 0xc5d4de,
+        gravity: -15.2, wind: 1.8, pool: { x: 9, z: 0, w: 14, d: 10 },
+        boards: [
+          { id: 'témpano', name: 'Ice slab', type: 'ice', x: 0.6, y: 7.5, z: 0, kick: 1.15, spin: 0.85, wobble: 0.55 },
+          { id: 'iceberg', name: 'Iceberg peak', type: 'cliff', x: -1.8, y: 19, z: 0, kick: 0.78, spin: 1.2 },
+          { id: 'glaciar', name: 'Glacier tongue', type: 'high', x: -2.8, y: 30, z: 0, kick: 0.58, spin: 1.5 },
+        ],
+      },
+    ];
+
+    const TRICKS = [
+      { id: 'mortal', name: 'Front Flip', need: 0, blurb: 'Forward spin. The basic dive.', spin: +1, twist: 0, tuck: 1, bonus: 1 },
+      { id: 'invertido', name: 'Backflip', need: 200, blurb: 'Rotate the other way.', spin: -1.15, twist: 0, tuck: 1, bonus: 1.15 },
+      { id: 'gainer', name: 'Gainer', need: 700, blurb: 'Jump forward, flip backward.', spin: -1.25, twist: 0, tuck: 0.9, bonus: 1.3, kickX: 1.15 },
+      { id: 'carpa', name: 'Pike', need: 1400, blurb: 'Tight legs, cleaner arc.', spin: 0.82, twist: 0, tuck: 0.35, bonus: 1.25 },
+      { id: 'layout', name: 'Layout', need: 2200, blurb: 'Body straight. Slow and classy.', spin: 0.62, twist: 0, tuck: 0.15, bonus: 1.4 },
+      { id: 'twist', name: 'Twist', need: 3200, blurb: 'Corkscrew rotation.', spin: 0.9, twist: 1.6, tuck: 0.8, bonus: 1.45 },
+      { id: 'doble', name: 'Double Flip', need: 4800, blurb: 'Two rotations off the board.', spin: 1.85, twist: 0, tuck: 1.25, bonus: 1.7 },
+      { id: 'bomba', name: 'Cannonball', need: 6000, blurb: 'Tuck and smash the water.', spin: 0.4, twist: 0, tuck: 2.1, bonus: 1.1, bomb: true },
+      { id: 'superman', name: 'Superman', need: 8000, blurb: 'Long flight, late spin.', spin: 0.35, twist: 0.4, tuck: 0.2, bonus: 1.55, kickX: 1.25 },
+    ];
+
+    const state = {
+      phase: 'menu',
+      score: 0,
+      height: 8,
+      flips: 0,
+      twists: 0,
+      tuckedTime: 0,
+      airTime: 0,
+      charge: 0,
+      charging: false,
+      splashDone: false,
+      started: false,
+      grace: 0,
+      keys: {},
+      lastTime: performance.now(),
+      sceneId: 'cala',
+      boardId: 'trampolin',
+      trickId: 'mortal',
+      combo: 0,
+    };
+    let homePose = [];
+
+    const menuOpen = () => {
+      const ov = $('overlay');
+      return !ov.classList.contains('hidden') && ov.style.display !== 'none';
+    };
+
+    // ---------- audio (Web Audio, no files) ----------
+    let actx = null;
+    let chargeNode = null;
+    function ensureAudio() {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      if (!actx) actx = new AC();
+      if (actx.state === 'suspended') actx.resume();
+      return actx;
+    }
+    function sfx(opts) {
+      const ctx = ensureAudio();
+      if (!ctx) return;
+      const {
+        freq = 440, dur = 0.16, type = 'sine', vol = 0.08,
+        slide = 0, noise = false, filter = 1200,
+      } = opts;
+      const t0 = ctx.currentTime;
+      const gain = ctx.createGain();
+      gain.connect(ctx.destination);
+      gain.gain.setValueAtTime(Math.max(0.0001, vol), t0);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      if (noise) {
+        const n = Math.max(1, Math.floor(ctx.sampleRate * dur));
+        const buf = ctx.createBuffer(1, n, ctx.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let i = 0; i < n; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 0.45);
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        const f = ctx.createBiquadFilter();
+        f.type = 'lowpass';
+        f.frequency.setValueAtTime(filter, t0);
+        src.connect(f); f.connect(gain);
+        src.start(t0); src.stop(t0 + dur);
+      } else {
+        const o = ctx.createOscillator();
+        o.type = type;
+        o.frequency.setValueAtTime(Math.max(40, freq), t0);
+        if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, freq + slide), t0 + dur);
+        o.connect(gain); o.start(t0); o.stop(t0 + dur + 0.02);
+      }
+    }
+    const S = {
+      click: () => sfx({ freq: 880, dur: 0.05, type: 'square', vol: 0.03 }),
+      chargeStart: () => {
+        const ctx = ensureAudio();
+        if (!ctx || chargeNode) return;
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'triangle';
+        o.frequency.value = 140;
+        g.gain.value = 0.03;
+        o.connect(g); g.connect(ctx.destination);
+        o.start();
+        chargeNode = { o, g };
+      },
+      chargeStop: () => {
+        if (!chargeNode) return;
+        try { chargeNode.o.stop(); } catch {}
+        chargeNode = null;
+      },
+      jump: () => {
+        S.chargeStop();
+        sfx({ freq: 180, dur: 0.18, type: 'square', vol: 0.07, slide: 220 });
+        sfx({ noise: true, dur: 0.16, vol: 0.07, filter: 900 });
+      },
+      whoosh: () => sfx({ noise: true, dur: 0.08, vol: 0.025, filter: 1600 }),
+      splash: () => {
+        sfx({ noise: true, dur: 0.45, vol: 0.12, filter: 700 });
+        sfx({ freq: 90, dur: 0.28, type: 'sine', vol: 0.06, slide: -40 });
+      },
+      smack: () => sfx({ noise: true, dur: 0.22, vol: 0.14, filter: 400 }),
+      coin: () => {
+        sfx({ freq: 980, dur: 0.08, type: 'square', vol: 0.05 });
+        sfx({ freq: 1320, dur: 0.12, type: 'square', vol: 0.04 });
+      },
+      perfect: () => {
+        sfx({ freq: 523, dur: 0.12, type: 'triangle', vol: 0.06 });
+        sfx({ freq: 659, dur: 0.14, type: 'triangle', vol: 0.05 });
+        sfx({ freq: 784, dur: 0.22, type: 'triangle', vol: 0.05 });
+      },
+      good: () => sfx({ freq: 520, dur: 0.16, type: 'triangle', vol: 0.06, slide: 160 }),
+      fail: () => sfx({ freq: 160, dur: 0.28, type: 'sawtooth', vol: 0.05, slide: -90 }),
+      unlock: () => {
+        sfx({ freq: 392, dur: 0.12, type: 'triangle', vol: 0.06 });
+        sfx({ freq: 523, dur: 0.16, type: 'triangle', vol: 0.06 });
+        sfx({ freq: 659, dur: 0.22, type: 'triangle', vol: 0.07 });
+      },
+    };
+
+    $('best').textContent = save.best;
+    $('coins').textContent = save.coins;
+
+    const sceneOf = () => SCENES.find((s) => s.id === state.sceneId) || SCENES[0];
+    const boardOf = () => sceneOf().boards.find((b) => b.id === state.boardId) || sceneOf().boards[0];
+    const trickOf = () => TRICKS.find((t) => t.id === state.trickId) || TRICKS[0];
+    const sceneUnlocked = (id) => save.scenes.includes(id);
+    const trickUnlocked = (id) => save.tricks.includes(id);
+
+    function unlockCheck() {
+      const news = [];
+      SCENES.forEach((s) => {
+        if (!sceneUnlocked(s.id) && save.best >= s.need) {
+          save.scenes.push(s.id);
+          news.push('Stage: ' + s.name);
+        }
+      });
+      TRICKS.forEach((t) => {
+        if (!trickUnlocked(t.id) && save.best >= t.need) {
+          save.tricks.push(t.id);
+          news.push('Trick: ' + t.name);
+        }
+      });
+      if (news.length) {
+        persist();
+        S.unlock();
+        showBanner('UNLOCKED!', news.join(' · '), 'unlock');
+        renderMenus();
+        renderTrickBar();
+      }
+    }
+
+    // ---------- renderer ----------
+    const renderer = new THREE.WebGLRenderer({
+      antialias: !IS_MOBILE,
+      powerPreference: 'high-performance',
+      alpha: false,
+    });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, IS_MOBILE ? 1.25 : 2));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.shadowMap.enabled = !IS_MOBILE;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.1;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    document.body.prepend(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(46, innerWidth / innerHeight, 0.1, 220);
+    camera.position.set(-2, 6, 16);
+
+    const hemi = new THREE.HemisphereLight(0xc8e8ff, 0x3a2a18, 0.85);
+    scene.add(hemi);
+    const sun = new THREE.DirectionalLight(0xfff1d0, 1.3);
+    sun.position.set(-18, 28, 12);
+    sun.castShadow = !IS_MOBILE;
+    sun.shadow.mapSize.set(IS_MOBILE ? 512 : 2048, IS_MOBILE ? 512 : 2048);
+    sun.shadow.camera.near = 2;
+    sun.shadow.camera.far = 80;
+    sun.shadow.camera.left = -26;
+    sun.shadow.camera.right = 26;
+    sun.shadow.camera.top = 26;
+    sun.shadow.camera.bottom = -26;
+    sun.shadow.bias = -0.0006;
+    scene.add(sun);
+    scene.add(new THREE.AmbientLight(0x88a0b8, 0.28));
+
+    function makeNoiseTex(w, h, c1, c2, grain = 18) {
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const g = c.getContext('2d');
+      g.fillStyle = c1; g.fillRect(0, 0, w, h);
+      for (let i = 0; i < w * h * 0.32; i++) {
+        g.fillStyle = Math.random() > 0.5 ? c2 : 'rgba(255,255,255,0.07)';
+        g.fillRect(Math.random() * w, Math.random() * h, Math.random() * grain, Math.random() * grain * 0.6);
+      }
+      const t = new THREE.CanvasTexture(c);
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.anisotropy = 8;
+      t.colorSpace = THREE.SRGBColorSpace;
+      return t;
+    }
+    function makeWood() {
+      const c = document.createElement('canvas');
+      c.width = 256; c.height = 256;
+      const g = c.getContext('2d');
+      g.fillStyle = '#6b3e22'; g.fillRect(0, 0, 256, 256);
+      for (let y = 0; y < 256; y++) {
+        const n = Math.sin(y * 0.08 + Math.sin(y * 0.03) * 2) * 12;
+        g.strokeStyle = `rgba(40,18,8,${0.18 + (y % 7 === 0 ? 0.25 : 0)})`;
+        g.beginPath(); g.moveTo(0, y); g.lineTo(256, y + n); g.stroke();
+      }
+      const t = new THREE.CanvasTexture(c);
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.repeat.set(2, 2);
+      t.colorSpace = THREE.SRGBColorSpace;
+      return t;
+    }
+    function makeWaterNormal() {
+      const c = document.createElement('canvas');
+      c.width = 256; c.height = 256;
+      const g = c.getContext('2d');
+      g.fillStyle = '#8080ff'; g.fillRect(0, 0, 256, 256);
+      for (let i = 0; i < 900; i++) {
+        g.fillStyle = `rgba(255,255,255,${Math.random() * 0.25})`;
+        g.beginPath();
+        g.ellipse(Math.random() * 256, Math.random() * 256, 6 + Math.random() * 18, 2 + Math.random() * 6, Math.random() * 6, 0, 6.28);
+        g.fill();
+      }
+      const t = new THREE.CanvasTexture(c);
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.repeat.set(6, 6);
+      return t;
+    }
+
+    const woodMap = makeWood();
+    const rockMap = makeNoiseTex(256, 256, '#6d675e', '#3f3a34', 14);
+    const waterN = makeWaterNormal();
+    const skinMap = makeNoiseTex(128, 128, '#e2b48a', '#c48a62', 8);
+    const shirtMap = makeNoiseTex(128, 128, '#2b6f9a', '#1d4e6d', 10);
+    const pantsMap = makeNoiseTex(128, 128, '#2e3544', '#1a1f28', 10);
+    const metalMap = makeNoiseTex(128, 128, '#8a93a0', '#4a5160', 8);
+    const iceMap = makeNoiseTex(256, 256, '#d8eef6', '#9cc7d8', 20);
+    const leafMap = makeNoiseTex(256, 256, '#2f6a32', '#1d4a22', 16);
+
+    const woodMat = new THREE.MeshStandardMaterial({ map: woodMap, roughness: 0.72, metalness: 0.04 });
+    const rockMat = new THREE.MeshStandardMaterial({ map: rockMap, roughness: 0.92, metalness: 0.02, color: 0xc8c2b6 });
+    const metalMat = new THREE.MeshStandardMaterial({ map: metalMap, roughness: 0.35, metalness: 0.72 });
+    const iceMat = new THREE.MeshStandardMaterial({ map: iceMap, roughness: 0.18, metalness: 0.15, color: 0xe8f6ff });
+    const leafMat = new THREE.MeshStandardMaterial({ map: leafMap, roughness: 0.85 });
+    const stoneMat = new THREE.MeshStandardMaterial({ map: rockMap, roughness: 0.9, color: 0xb9b3a6 });
+
+    const waterGeo = new THREE.PlaneGeometry(90, 56, IS_MOBILE ? 24 : 80, IS_MOBILE ? 16 : 50);
+    const waterMat = new THREE.MeshPhysicalMaterial({
+      color: 0x1b6f88, roughness: 0.18, metalness: 0.05,
+      transmission: 0.28, thickness: 1.4, transparent: true, opacity: 0.92,
+      normalMap: waterN, normalScale: new THREE.Vector2(0.6, 0.6),
+    });
+    const waterMesh = new THREE.Mesh(waterGeo, waterMat);
+    waterMesh.rotation.x = -Math.PI / 2;
+    waterMesh.position.set(10, 0, 0);
+    waterMesh.receiveShadow = true;
+    scene.add(waterMesh);
+
+    const envGroup = new THREE.Group();
+    scene.add(envGroup);
+    const decoGroup = new THREE.Group();
+    scene.add(decoGroup);
+
+    const boardMesh = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.22, 1.5), woodMat);
+    boardMesh.castShadow = boardMesh.receiveShadow = true;
+    scene.add(boardMesh);
+    const boardPost = new THREE.Mesh(new THREE.BoxGeometry(0.28, 4.2, 0.28), woodMat);
+    boardPost.castShadow = true;
+    scene.add(boardPost);
+
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(2.4, 0.12, 8, 28), new THREE.MeshStandardMaterial({ color: 0xff3b3b, roughness: 0.4 }));
+    ring.rotation.x = Math.PI / 2;
+    scene.add(ring);
+    const ring2 = new THREE.Mesh(new THREE.TorusGeometry(1.15, 0.1, 8, 24), new THREE.MeshStandardMaterial({ color: 0xffd23f, roughness: 0.4 }));
+    ring2.rotation.x = Math.PI / 2;
+    scene.add(ring2);
+
+    const coins3d = [];
+    const splashGeo = new THREE.SphereGeometry(0.08, 6, 6);
+    const splashMat = new THREE.MeshStandardMaterial({ color: 0xd6f3ff, roughness: 0.3 });
+    const splashes = [];
+    function burstSplash(pos, n = 40) {
+      for (let i = 0; i < n; i++) {
+        const m = new THREE.Mesh(splashGeo, splashMat);
+        m.position.copy(pos);
+        m.userData.v = new THREE.Vector3((Math.random() - 0.5) * 6, 3 + Math.random() * 7, (Math.random() - 0.5) * 6);
+        m.userData.life = 1;
+        scene.add(m);
+        splashes.push(m);
+      }
+    }
+
+    // ---------- physics ----------
+    const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -16.5, 0) });
+    world.broadphase = new CANNON.SAPBroadphase(world);
+    world.allowSleep = false;
+    world.solver.iterations = IS_MOBILE ? 8 : 16;
+    world.defaultContactMaterial.friction = 0.45;
+    world.defaultContactMaterial.restitution = 0.12;
+
+    const ENV = 1, RAG = 2;
+    const envMat = new CANNON.Material('env');
+    const ragMat = new CANNON.Material('rag');
+    world.addContactMaterial(new CANNON.ContactMaterial(envMat, ragMat, { friction: 0.4, restitution: 0.08 }));
+
+    const envBodies = [];
+    function staticBox(x, y, z, hx, hy, hz, friction = 0.4) {
+      const b = new CANNON.Body({ mass: 0, material: envMat, collisionFilterGroup: ENV, collisionFilterMask: RAG });
+      b.addShape(new CANNON.Box(new CANNON.Vec3(hx, hy, hz)));
+      b.position.set(x, y, z);
+      world.addBody(b);
+      envBodies.push(b);
+      return b;
+    }
+    function clearEnvPhysics() {
+      envBodies.forEach((b) => world.removeBody(b));
+      envBodies.length = 0;
+    }
+
+    let boardBody = null;
+    let waterBody = null;
+
+    function addMeshBox(mat, x, y, z, sx, sy, sz) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), mat);
+      m.position.set(x, y, z);
+      m.castShadow = m.receiveShadow = true;
+      envGroup.add(m);
+      staticBox(x, y, z, sx / 2, sy / 2, sz / 2);
+      return m;
+    }
+
+    function buildScene() {
+      const sc = sceneOf();
+      scene.background = new THREE.Color(sc.sky);
+      scene.fog = new THREE.Fog(sc.fog, sc.fogNear, sc.fogFar);
+      waterMat.color.setHex(sc.water);
+      world.gravity.set(sc.wind * 0.15, sc.gravity, 0);
+      hemi.color.set(sc.sky);
+      sun.intensity = sc.id === 'iceberg' ? 1.55 : 1.3;
+
+      while (envGroup.children.length) envGroup.remove(envGroup.children[0]);
+      while (decoGroup.children.length) decoGroup.remove(decoGroup.children[0]);
+      clearEnvPhysics();
+
+      const pool = sc.pool;
+      addMeshBox(new THREE.MeshStandardMaterial({ color: sc.sand, roughness: 1 }), 6, -3.1, 0, 90, 1.6, 60);
+      addMeshBox(new THREE.MeshStandardMaterial({ color: 0x1a4a58, roughness: 0.8 }), pool.x, -2.2, 0, pool.w + 2, 1.2, pool.d + 1);
+
+      if (sc.id === 'cala') {
+        addMeshBox(rockMat, -10, 4, 0, 18, 16, 16);
+        addMeshBox(rockMat, -16, 1, -6, 10, 10, 12);
+        addMeshBox(rockMat, -1.6, 0.6, 0, 3.2, 1.4, 8);
+        addMeshBox(rockMat, 20.5, 0.7, 0, 4, 1.6, 10);
+      } else if (sc.id === 'muelle') {
+        addMeshBox(woodMat, -8, 2.2, 0, 16, 4.6, 8);
+        addMeshBox(woodMat, -8, 4.6, 3.6, 16, 0.35, 1.2);
+        addMeshBox(woodMat, -8, 4.6, -3.6, 16, 0.35, 1.2);
+        addMeshBox(metalMat, -6, 10, -2.5, 0.5, 14, 0.5);
+        addMeshBox(metalMat, -4, 16.6, -2.5, 8, 0.4, 0.5);
+        addMeshBox(woodMat, 2.5, 3.2, 4.5, 8, 2.4, 3.2);
+        addMeshBox(rockMat, 22, 0.6, 0, 4, 1.4, 10);
+      } else if (sc.id === 'selva') {
+        addMeshBox(leafMat, -11, 6, 0, 14, 18, 10);
+        addMeshBox(woodMat, -7, 8, 0, 1.4, 16, 1.4);
+        addMeshBox(leafMat, -7, 16, 0, 7, 4, 7);
+        addMeshBox(woodMat, -4, 12, 2.2, 8, 0.5, 1.2);
+        addMeshBox(rockMat, -1.2, 0.5, 0, 2.4, 1.2, 7);
+        addMeshBox(leafMat, 18, 3, 6, 6, 8, 6);
+      } else if (sc.id === 'azotea') {
+        addMeshBox(stoneMat, -9, 5, 0, 16, 12, 14);
+        addMeshBox(stoneMat, -9, 11.2, 0, 16, 0.5, 14);
+        addMeshBox(metalMat, -8, 18, -4, 0.6, 22, 0.6);
+        addMeshBox(metalMat, -5, 26.4, -4, 10, 0.45, 0.6);
+        addMeshBox(stoneMat, -2, 0.8, 6.6, 18, 1.6, 2);
+        addMeshBox(stoneMat, -2, 0.8, -6.6, 18, 1.6, 2);
+        addMeshBox(stoneMat, 16.5, 6, 0, 4, 12, 10);
+      } else if (sc.id === 'castillo') {
+        addMeshBox(stoneMat, -11, 7, 0, 16, 18, 14);
+        addMeshBox(stoneMat, -11, 16.4, 4.5, 3, 4, 3);
+        addMeshBox(stoneMat, -11, 16.4, -4.5, 3, 4, 3);
+        addMeshBox(stoneMat, -4, 8.6, 0, 8, 0.45, 3.2);
+        addMeshBox(stoneMat, -1.4, 0.7, 0, 2.6, 1.5, 8);
+        addMeshBox(stoneMat, 18, 5, 0, 5, 10, 12);
+        addMeshBox(stoneMat, 18, 10.6, 3.5, 2.2, 3, 2.2);
+      } else if (sc.id === 'iceberg') {
+        addMeshBox(iceMat, -10, 5, 0, 16, 16, 14);
+        addMeshBox(iceMat, -16, 2, -5, 8, 10, 8);
+        addMeshBox(iceMat, -2, 0.5, 0, 4, 1.1, 8);
+        addMeshBox(iceMat, 22, 1.2, 0, 6, 2.6, 12);
+        addMeshBox(iceMat, 12, 0.4, 8, 10, 1, 3);
+      }
+
+      addMeshBox(rockMat, pool.x, 0.35, pool.d / 2 + 0.6, pool.w + 4, 0.8, 2.0);
+      addMeshBox(rockMat, pool.x, 0.35, -pool.d / 2 - 0.6, pool.w + 4, 0.8, 2.0);
+
+      waterBody = new CANNON.Body({
+        mass: 0, collisionResponse: false,
+        collisionFilterGroup: ENV, collisionFilterMask: RAG,
+      });
+      waterBody.addShape(new CANNON.Box(new CANNON.Vec3(pool.w / 2, 0.6, pool.d / 2)));
+      waterBody.position.set(pool.x, -0.2, 0);
+      world.addBody(waterBody);
+      envBodies.push(waterBody);
+
+      ring.position.set(pool.x, 0.08, 0);
+      ring2.position.set(pool.x, 0.1, 0);
+      waterMesh.position.set(pool.x + 2, 0, 0);
+
+      spawnCoins(sc);
+      applyBoardVisual();
+    }
+
+    function spawnCoins(sc) {
+      coins3d.forEach((c) => scene.remove(c.mesh));
+      coins3d.length = 0;
+      const geo = new THREE.CylinderGeometry(0.28, 0.28, 0.06, 16);
+      const mat = new THREE.MeshStandardMaterial({ color: 0xffd166, metalness: 0.8, roughness: 0.25 });
+      const pool = sc.pool;
+      for (let i = 0; i < 6; i++) {
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.rotation.x = Math.PI / 2;
+        const x = pool.x - 3 + Math.random() * 6;
+        const y = 2 + Math.random() * Math.max(4, boardOf().y - 4);
+        const z = (Math.random() - 0.5) * 2.2;
+        mesh.position.set(x, y, z);
+        scene.add(mesh);
+        coins3d.push({ mesh, taken: false });
+      }
+    }
+
+    function applyBoardVisual() {
+      const b = boardOf();
+      const sc = sceneOf();
+      let mat = woodMat;
+      if (b.type === 'crane' || b.type === 'roof') mat = metalMat;
+      if (b.type === 'ice') mat = iceMat;
+      if (b.type === 'cliff' || b.type === 'high') mat = sc.id === 'iceberg' ? iceMat : sc.id === 'castillo' ? stoneMat : rockMat;
+      if (b.type === 'tree' || b.type === 'vine') mat = woodMat;
+      boardMesh.material = mat;
+      boardPost.material = mat;
+      boardMesh.position.set(b.x, b.y, b.z);
+      boardPost.position.set(b.x - 2.2, b.y - 2.1, b.z);
+      if (boardBody) {
+        world.removeBody(boardBody);
+        const i = envBodies.indexOf(boardBody);
+        if (i >= 0) envBodies.splice(i, 1);
+      }
+      boardBody = staticBox(b.x, b.y, b.z, 2.6, 0.11, 0.75);
+      state.height = b.y;
+      $('height').textContent = b.y.toFixed(0) + ' m';
+      $('sceneTag').textContent = sc.name + ' · ' + b.name;
+    }
+
+    // ---------- ragdoll ----------
+    let ragdoll = null;
+    const meshes = [];
+
+    function createRagdoll({ scale = 1.55, angle = Math.PI / 2.6, angleShoulders = Math.PI / 2.2, twistAngle = Math.PI / 6 }) {
+      const bodies = [], constraints = [];
+      const shouldersDistance = 0.48 * scale;
+      const upperArmLength = 0.38 * scale;
+      const lowerArmLength = 0.36 * scale;
+      const upperArmSize = 0.16 * scale;
+      const lowerArmSize = 0.14 * scale;
+      const neckLength = 0.08 * scale;
+      const headRadius = 0.22 * scale;
+      const upperBodyLength = 0.52 * scale;
+      const pelvisLength = 0.32 * scale;
+      const upperLegLength = 0.44 * scale;
+      const upperLegSize = 0.17 * scale;
+      const lowerLegSize = 0.15 * scale;
+      const lowerLegLength = 0.44 * scale;
+
+      const headShape = new CANNON.Sphere(headRadius);
+      const upperArmShape = new CANNON.Box(new CANNON.Vec3(upperArmLength * 0.5, upperArmSize * 0.5, upperArmSize * 0.5));
+      const lowerArmShape = new CANNON.Box(new CANNON.Vec3(lowerArmLength * 0.5, lowerArmSize * 0.5, lowerArmSize * 0.5));
+      const upperBodyShape = new CANNON.Box(new CANNON.Vec3(shouldersDistance * 0.5, lowerArmSize * 0.55, upperBodyLength * 0.5));
+      const pelvisShape = new CANNON.Box(new CANNON.Vec3(shouldersDistance * 0.5, lowerArmSize * 0.55, pelvisLength * 0.5));
+      const upperLegShape = new CANNON.Box(new CANNON.Vec3(upperLegSize * 0.5, lowerArmSize * 0.5, upperLegLength * 0.5));
+      const lowerLegShape = new CANNON.Box(new CANNON.Vec3(lowerLegSize * 0.5, lowerArmSize * 0.5, lowerLegLength * 0.5));
+
+      function part(mass, x, y, z, shape, name) {
+        const b = new CANNON.Body({
+          mass, material: ragMat, linearDamping: 0.18, angularDamping: 0.28,
+          collisionFilterGroup: RAG, collisionFilterMask: ENV,
+        });
+        b.addShape(shape);
+        b.position.set(x, y, z);
+        b.name = name;
+        bodies.push(b);
+        return b;
+      }
+
+      const lowerLeftLeg = part(1.1, shouldersDistance / 2, 0, lowerLegLength / 2, lowerLegShape, 'lLeg');
+      const lowerRightLeg = part(1.1, -shouldersDistance / 2, 0, lowerLegLength / 2, lowerLegShape, 'rLeg');
+      const upperLeftLeg = part(1.3, shouldersDistance / 2, 0, lowerLeftLeg.position.z + lowerLegLength / 2 + upperLegLength / 2, upperLegShape, 'lThigh');
+      const upperRightLeg = part(1.3, -shouldersDistance / 2, 0, lowerRightLeg.position.z + lowerLegLength / 2 + upperLegLength / 2, upperLegShape, 'rThigh');
+      const pelvis = part(2.2, 0, 0, upperLeftLeg.position.z + upperLegLength / 2 + pelvisLength / 2, pelvisShape, 'pelvis');
+      const upperBody = part(2.6, 0, 0, pelvis.position.z + pelvisLength / 2 + upperBodyLength / 2, upperBodyShape, 'torso');
+      const head = part(1.0, 0, 0, upperBody.position.z + upperBodyLength / 2 + headRadius + neckLength, headShape, 'head');
+      const upperLeftArm = part(0.9, shouldersDistance / 2 + upperArmLength / 2, 0, upperBody.position.z + upperBodyLength / 2, upperArmShape, 'lArm');
+      const upperRightArm = part(0.9, -shouldersDistance / 2 - upperArmLength / 2, 0, upperBody.position.z + upperBodyLength / 2, upperArmShape, 'rArm');
+      const lowerLeftArm = part(0.7, upperLeftArm.position.x + lowerArmLength / 2 + upperArmLength / 2, 0, upperLeftArm.position.z, lowerArmShape, 'lHand');
+      const lowerRightArm = part(0.7, upperRightArm.position.x - lowerArmLength / 2 - upperArmLength / 2, 0, upperRightArm.position.z, lowerArmShape, 'rHand');
+
+      const ct = (a, b, pa, pb, axisA, axisB, ang = angle, tw = twistAngle) => {
+        const j = new CANNON.ConeTwistConstraint(a, b, { pivotA: pa, pivotB: pb, axisA, axisB, angle: ang, twistAngle: tw });
+        j.collideConnected = false;
+        constraints.push(j);
+      };
+      ct(head, upperBody, new CANNON.Vec3(0, 0, -headRadius - neckLength / 2), new CANNON.Vec3(0, 0, upperBodyLength / 2), CANNON.Vec3.UNIT_Z, CANNON.Vec3.UNIT_Z, angle * 0.8, twistAngle);
+      ct(lowerLeftLeg, upperLeftLeg, new CANNON.Vec3(0, 0, lowerLegLength / 2), new CANNON.Vec3(0, 0, -upperLegLength / 2), CANNON.Vec3.UNIT_Z, CANNON.Vec3.UNIT_Z);
+      ct(lowerRightLeg, upperRightLeg, new CANNON.Vec3(0, 0, lowerLegLength / 2), new CANNON.Vec3(0, 0, -upperLegLength / 2), CANNON.Vec3.UNIT_Z, CANNON.Vec3.UNIT_Z);
+      ct(upperLeftLeg, pelvis, new CANNON.Vec3(0, 0, upperLegLength / 2), new CANNON.Vec3(shouldersDistance / 2, 0, -pelvisLength / 2), CANNON.Vec3.UNIT_Z, CANNON.Vec3.UNIT_Z);
+      ct(upperRightLeg, pelvis, new CANNON.Vec3(0, 0, upperLegLength / 2), new CANNON.Vec3(-shouldersDistance / 2, 0, -pelvisLength / 2), CANNON.Vec3.UNIT_Z, CANNON.Vec3.UNIT_Z);
+      ct(pelvis, upperBody, new CANNON.Vec3(0, 0, pelvisLength / 2), new CANNON.Vec3(0, 0, -upperBodyLength / 2), CANNON.Vec3.UNIT_Z, CANNON.Vec3.UNIT_Z, angle * 0.7, twistAngle);
+      ct(upperBody, upperLeftArm, new CANNON.Vec3(shouldersDistance / 2, 0, upperBodyLength / 2), new CANNON.Vec3(-upperArmLength / 2, 0, 0), CANNON.Vec3.UNIT_X, CANNON.Vec3.UNIT_X, angleShoulders, twistAngle);
+      ct(upperBody, upperRightArm, new CANNON.Vec3(-shouldersDistance / 2, 0, upperBodyLength / 2), new CANNON.Vec3(upperArmLength / 2, 0, 0), CANNON.Vec3.UNIT_X, CANNON.Vec3.UNIT_X, angleShoulders, twistAngle);
+      ct(lowerLeftArm, upperLeftArm, new CANNON.Vec3(-lowerArmLength / 2, 0, 0), new CANNON.Vec3(upperArmLength / 2, 0, 0), CANNON.Vec3.UNIT_X, CANNON.Vec3.UNIT_X);
+      ct(lowerRightArm, upperRightArm, new CANNON.Vec3(lowerArmLength / 2, 0, 0), new CANNON.Vec3(-upperArmLength / 2, 0, 0), CANNON.Vec3.UNIT_X, CANNON.Vec3.UNIT_X);
+
+      return { bodies, constraints, refs: { head, upperBody, pelvis } };
+    }
+
+    function standUp(bodies) {
+      bodies.forEach((b) => {
+        const { x, y, z } = b.position;
+        b.position.set(x, z, -y);
+        b.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
+      });
+    }
+
+    function materialFor(name) {
+      if (name === 'head') return new THREE.MeshStandardMaterial({ map: skinMap, roughness: 0.55, metalness: 0.02 });
+      if (name === 'torso' || name === 'lArm' || name === 'rArm') return new THREE.MeshStandardMaterial({ map: shirtMap, roughness: 0.7, metalness: 0.05 });
+      if (name === 'pelvis' || name.includes('Thigh') || name.includes('Leg')) return new THREE.MeshStandardMaterial({ map: pantsMap, roughness: 0.75 });
+      return new THREE.MeshStandardMaterial({ map: skinMap, roughness: 0.55 });
+    }
+
+    function shapeToMesh(body) {
+      const shape = body.shapes[0];
+      const geo = shape instanceof CANNON.Sphere
+        ? new THREE.SphereGeometry(shape.radius, 18, 14)
+        : new THREE.BoxGeometry(shape.halfExtents.x * 2, shape.halfExtents.y * 2, shape.halfExtents.z * 2);
+      const mesh = new THREE.Mesh(geo, materialFor(body.name));
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      if (body.name === 'head') {
+        const eyeM = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), new THREE.MeshStandardMaterial({ color: 0x1a1a1a }));
+        const e1 = eyeM.clone(), e2 = eyeM.clone();
+        e1.position.set(0.18, 0.06, 0.07); e2.position.set(0.18, 0.06, -0.07);
+        mesh.add(e1); mesh.add(e2);
+        const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.025, 0.1), new THREE.MeshStandardMaterial({ color: 0x6a3030 }));
+        mouth.position.set(0.2, -0.07, 0); mesh.add(mouth);
+      }
+      return mesh;
+    }
+
+    function spawnRagdoll() {
+      destroyRagdoll();
+      const b = boardOf();
+      ragdoll = createRagdoll({});
+      standUp(ragdoll.bodies);
+      const target = new CANNON.Vec3(b.x + 0.15, b.y + 1.72, b.z);
+      const offset = target.vsub(ragdoll.refs.pelvis.position);
+      homePose = [];
+      ragdoll.bodies.forEach((body) => {
+        body.position.vadd(offset, body.position);
+        body.velocity.setZero();
+        body.angularVelocity.setZero();
+        body.type = CANNON.Body.KINEMATIC;
+        world.addBody(body);
+        homePose.push({
+          p: body.position.clone(),
+          q: body.quaternion.clone(),
+        });
+        const m = shapeToMesh(body);
+        scene.add(m);
+        meshes.push({ mesh: m, body });
+      });
+      ragdoll.constraints.forEach((c) => world.addConstraint(c));
+    }
+
+    function destroyRagdoll() {
+      if (!ragdoll) return;
+      ragdoll.constraints.forEach((c) => world.removeConstraint(c));
+      ragdoll.bodies.forEach((b) => world.removeBody(b));
+      meshes.forEach(({ mesh }) => scene.remove(mesh));
+      meshes.length = 0;
+      ragdoll = null;
+    }
+
+    function placeReady() {
+      applyBoardVisual();
+      spawnRagdoll();
+      spawnCoins(sceneOf());
+      state.phase = 'charge';
+      state.charge = 0;
+      state.charging = false;
+      state.flips = 0;
+      state.twists = 0;
+      state.tuckedTime = 0;
+      state.airTime = 0;
+      state.splashDone = false;
+      state.grace = 0;
+      $('flips').textContent = '0.0';
+      $('power').classList.remove('on');
+      S.chargeStop();
+    }
+
+    function inPool(p) {
+      const pool = sceneOf().pool;
+      return p.x > pool.x - pool.w / 2 && p.x < pool.x + pool.w / 2 && Math.abs(p.z - pool.z) < pool.d / 2 && p.y < 0.55;
+    }
+
+    function torsoDownAlign() {
+      const t = ragdoll.refs.upperBody;
+      const worldDir = t.quaternion.vmult(new CANNON.Vec3(0, 0, 1));
+      return -worldDir.y;
+    }
+    function headFirst() {
+      return ragdoll.refs.head.position.y < ragdoll.refs.pelvis.position.y - 0.15;
+    }
+
+    function judgeDive() {
+      const t = ragdoll.refs.upperBody;
+      const align = THREE.MathUtils.clamp(torsoDownAlign(), -1, 1);
+      const hf = headFirst();
+      const pool = sceneOf().pool;
+      const dist = Math.abs(t.position.x - pool.x);
+      const inGold = dist < 1.2 && Math.abs(t.position.z) < 1.1;
+      const inRed = dist < 2.5;
+      const inWater = inPool(t.position) || inPool(ragdoll.refs.head.position);
+      const trick = trickOf();
+      const board = boardOf();
+
+      let kind = 'fail', pts = 0, msg = 'BELLY FLOP!', sub = 'Go in head first.';
+      if (!inWater) {
+        kind = 'fail'; msg = 'MISSED THE WATER!'; sub = 'Rocks, ice or pavement. Ouch.';
+        state.combo = 0;
+      } else if (trick.bomb) {
+        kind = 'good';
+        const tuckRatio = state.airTime > 0 ? state.tuckedTime / state.airTime : 0;
+        pts = Math.round(90 + tuckRatio * 80 + board.y * 3 + state.combo * 15);
+        msg = tuckRatio > 0.45 ? 'CANNONBALL!' : 'Soft splash';
+        sub = `+${pts}  ·  tucked ${(tuckRatio * 100).toFixed(0)}%`;
+        state.combo += 1;
+      } else if (!hf || align < 0.12) {
+        kind = 'fail';
+        msg = align < -0.2 ? 'BACK FLOP!' : 'BELLY FLOP!';
+        sub = 'The ragdoll judge covers his eyes.';
+        pts = 15 + Math.floor(state.flips * 6);
+        state.combo = 0;
+      } else {
+        const quality = align * 0.7 + (hf ? 0.3 : 0);
+        const ringBonus = inGold ? 90 : inRed ? 40 : 0;
+        const flipBonus = Math.floor(state.flips * 50);
+        const twistBonus = Math.floor(state.twists * 40);
+        const trickBonus = Math.round((flipBonus + 80) * (trick.bonus - 1));
+        pts = Math.round(110 * quality + ringBonus + flipBonus + twistBonus + trickBonus + board.y * 4 + state.combo * 20);
+        state.combo += 1;
+        if (quality > 0.8 && inRed) {
+          kind = 'good';
+          msg = inGold ? 'PERFECT DIVE!' : 'CLEAN ENTRY!';
+          sub = `+${pts}  ·  ${state.flips.toFixed(1)} flips · combo x${state.combo}`;
+        } else {
+          kind = 'good';
+          msg = 'Nice splash';
+          sub = `+${pts}  ·  ${trick.name}`;
+        }
+      }
+      return { kind, pts, msg, sub };
+    }
+
+    function showBanner(text, sub, kind) {
+      const el = $('banner');
+      el.innerHTML = text + (sub ? `<span class="sub">${sub}</span>` : '');
+      el.className = 'show ' + kind;
+      setTimeout(() => el.classList.remove('show'), 2300);
+    }
+
+    // ---------- menus ----------
+    function renderMenus() {
+      const sg = $('sceneGrid'); sg.innerHTML = '';
+      SCENES.forEach((s) => {
+        const locked = !sceneUnlocked(s.id);
+        const el = document.createElement('button');
+        el.className = 'pick' + (s.id === state.sceneId ? ' on' : '') + (locked ? ' lock' : '');
+        el.innerHTML = `<b>${s.name}</b><small>${locked ? 'Best ' + s.need + ' pts' : s.blurb}</small>`;
+        el.onclick = () => {
+          if (locked) return;
+          S.click();
+          state.sceneId = s.id;
+          state.boardId = s.boards[0].id;
+          renderMenus();
+        };
+        sg.appendChild(el);
+      });
+      const bg = $('boardGrid'); bg.innerHTML = '';
+      sceneOf().boards.forEach((b) => {
+        const el = document.createElement('button');
+        el.className = 'pick' + (b.id === state.boardId ? ' on' : '');
+        el.innerHTML = `<b>${b.name}</b><small>${b.y} m · ${b.type}${b.wobble ? ' · shaky' : ''}</small>`;
+        el.onclick = () => { S.click(); state.boardId = b.id; renderMenus(); };
+        bg.appendChild(el);
+      });
+      const tg = $('trickGrid'); tg.innerHTML = '';
+      TRICKS.forEach((t) => {
+        const locked = !trickUnlocked(t.id);
+        const el = document.createElement('button');
+        el.className = 'tpick' + (t.id === state.trickId ? ' on' : '') + (locked ? ' lock' : '');
+        el.innerHTML = `<b>${t.name}</b><small>${locked ? 'Best ' + t.need + ' pts' : t.blurb}</small>`;
+        el.onclick = () => {
+          if (locked) return;
+          S.click();
+          state.trickId = t.id;
+          renderMenus();
+          renderTrickBar();
+        };
+        tg.appendChild(el);
+      });
+    }
+
+    function renderTrickBar() {
+      const bar = $('trickBar');
+      bar.innerHTML = '';
+      TRICKS.filter((t) => trickUnlocked(t.id)).forEach((t) => {
+        const d = document.createElement('div');
+        d.className = 'trickChip' + (t.id === state.trickId ? ' active' : '');
+        d.textContent = t.name;
+        bar.appendChild(d);
+      });
+    }
+
+    function cycleTrick(dir) {
+      const list = TRICKS.filter((t) => trickUnlocked(t.id));
+      const i = list.findIndex((t) => t.id === state.trickId);
+      const n = list[(i + dir + list.length) % list.length];
+      state.trickId = n.id;
+      renderTrickBar();
+      showBanner(n.name, n.blurb, 'unlock');
+    }
+
+    function cycleScene(dir) {
+      const list = SCENES.filter((s) => sceneUnlocked(s.id));
+      const i = list.findIndex((s) => s.id === state.sceneId);
+      const n = list[(i + dir + list.length) % list.length];
+      state.sceneId = n.id;
+      state.boardId = n.boards[0].id;
+      buildScene();
+      placeReady();
+      renderMenus();
+    }
+
+    function nextBoardOrStay(advance) {
+      const boards = sceneOf().boards;
+      const i = boards.findIndex((b) => b.id === state.boardId);
+      if (advance && i < boards.length - 1) state.boardId = boards[i + 1].id;
+      else if (!advance && i > 0) state.boardId = boards[i - 1].id;
+    }
+
+    // ---------- controls ----------
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') e.preventDefault();
+      if (e.code === 'Escape') {
+        if (!state.started) return;
+        const ov = $('overlay');
+        const closed = ov.classList.contains('hidden') || ov.style.display === 'none';
+        if (closed) {
+          ov.classList.remove('hidden');
+          ov.style.display = 'flex';
+          renderMenus();
+        } else {
+          ov.classList.add('hidden');
+          ov.style.display = 'none';
+        }
+        return;
+      }
+      if (menuOpen() || !state.started) return;
+      state.keys[e.code] = true;
+      if (e.code === 'KeyR' && state.phase !== 'air') placeReady();
+      if (e.code === 'KeyQ') cycleTrick(-1);
+      if (e.code === 'KeyE') cycleTrick(1);
+      if (e.code.startsWith('Digit')) {
+        const idx = Number(e.code.slice(-1)) - 1;
+        if (SCENES[idx] && sceneUnlocked(SCENES[idx].id) && state.phase !== 'air') {
+          state.sceneId = SCENES[idx].id;
+          state.boardId = SCENES[idx].boards[0].id;
+          buildScene();
+          placeReady();
+        }
+      }
+    });
+    window.addEventListener('keyup', (e) => {
+      state.keys[e.code] = false;
+      if (menuOpen() || !state.started) return;
+      if (e.code === 'Space' && state.phase === 'charge' && state.charging) launch();
+    });
+    window.addEventListener('pointerdown', (e) => {
+      if (menuOpen() || !state.started) return;
+      if (e.target.closest('#ui') && e.target.closest('button')) return;
+      if (state.phase === 'charge' && !state.charging) beginCharge();
+    });
+    window.addEventListener('pointerup', () => {
+      if (menuOpen() || !state.started) return;
+      if (state.phase === 'charge' && state.charging) launch();
+    });
+
+    function beginCharge() {
+      if (state.phase !== 'charge' || state.charging) return;
+      state.charging = true;
+      state.charge = 0;
+      $('power').classList.add('on');
+      S.chargeStart();
+    }
+
+    let lastStartAt = 0;
+    function startGame(e) {
+      if (e) { e.preventDefault(); e.stopPropagation(); }
+      const nowTap = performance.now();
+      if (nowTap - lastStartAt < 400) return;
+      lastStartAt = nowTap;
+      try { ensureAudio(); S.click(); } catch {}
+      const overlay = $('overlay');
+      overlay.classList.add('hidden');
+      overlay.style.display = 'none';
+      const fresh = !state.started;
+      state.started = true;
+      if (fresh) {
+        state.score = 0;
+        state.combo = 0;
+        $('score').textContent = '0';
+      }
+      state.charging = false;
+      state.phase = 'charge';
+      try {
+        buildScene();
+        placeReady();
+      } catch (err) {
+        console.error(err);
+        showBanner('START ERROR', String(err.message || err), 'bad');
+      }
+    }
+    $('startBtn').addEventListener('click', startGame);
+    $('startBtn').addEventListener('pointerup', startGame);
+    $('startBtn').addEventListener('touchend', startGame, { passive: false });
+    $('menuFab').addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!state.started) return;
+      const ov = $('overlay');
+      if (menuOpen()) {
+        ov.classList.add('hidden');
+        ov.style.display = 'none';
+      } else {
+        ov.classList.remove('hidden');
+        ov.style.display = 'flex';
+        renderMenus();
+      }
+    });
+    function bindHold(el, onDown, onUp) {
+      if (!el) return;
+      const down = (ev) => { ev.preventDefault(); ev.stopPropagation(); onDown(); };
+      const up = (ev) => { ev.preventDefault(); ev.stopPropagation(); onUp(); };
+      el.addEventListener('pointerdown', down);
+      el.addEventListener('pointerup', up);
+      el.addEventListener('pointercancel', up);
+      el.addEventListener('pointerleave', up);
+    }
+    bindHold($('btnJump'), () => beginCharge(), () => { if (state.charging) launch(); });
+    bindHold($('btnLeft'), () => { state.keys.KeyA = true; }, () => { state.keys.KeyA = false; });
+    bindHold($('btnRight'), () => { state.keys.KeyD = true; }, () => { state.keys.KeyD = false; });
+    bindHold($('btnTuck'), () => { state.keys.KeyS = true; }, () => { state.keys.KeyS = false; });
+    $('resetProg').addEventListener('click', () => {
+      if (!confirm('Erase unlocks and high score?')) return;
+      save = defaultSave();
+      persist();
+      state.sceneId = 'cala';
+      state.boardId = 'trampolin';
+      state.trickId = 'mortal';
+      $('best').textContent = 0;
+      $('coins').textContent = 0;
+      renderMenus();
+      renderTrickBar();
+    });
+
+    function launch() {
+      if (!ragdoll || state.phase !== 'charge' || !state.charging) return;
+      const power = THREE.MathUtils.clamp(state.charge, 0.18, 1);
+      const board = boardOf();
+      const trick = trickOf();
+      state.charging = false;
+      $('power').classList.remove('on');
+      state.phase = 'air';
+      state.grace = 0.55;
+      S.jump();
+      const kickX = (trick.kickX || 1) * board.kick;
+      const vx = (4.2 + power * 5.4) * kickX;
+      const vy = (3.8 + power * 6.2) * Math.max(0.85, board.kick);
+      const spinZ = (0.7 + power * 1.35) * trick.spin * board.spin;
+      const spinY = power * 0.85 * trick.twist;
+      ragdoll.bodies.forEach((b) => {
+        b.type = CANNON.Body.DYNAMIC;
+        b.position.x += 0.35;
+        b.position.y += 0.12;
+        b.velocity.set(vx, vy, 0);
+        b.angularVelocity.set(0, spinY, spinZ);
+        b.force.setZero();
+        b.torque.set(0, 0, 0);
+      });
+    }
+
+    function applyAirControl(dt) {
+      if (!ragdoll || state.phase !== 'air') return;
+      const torso = ragdoll.refs.upperBody;
+      const left = state.keys['KeyA'] || state.keys['ArrowLeft'];
+      const right = state.keys['KeyD'] || state.keys['ArrowRight'];
+      const tuck = state.keys['KeyS'] || state.keys['ArrowDown'] || state.keys['KeyF'];
+      const pike = state.keys['KeyW'] || state.keys['ArrowUp'];
+      const trick = trickOf();
+      const sc = sceneOf();
+
+      let torqueZ = 0, torqueY = 0;
+      if (left) torqueZ += 18 * Math.sign(trick.spin || 1);
+      if (right) torqueZ -= 18 * Math.sign(trick.spin || 1);
+      if (trick.twist && (left || right)) torqueY += (left ? -1 : 1) * 10 * trick.twist;
+      const tuckMul = tuck ? 1.35 * trick.tuck : pike ? 0.5 : trick.tuck;
+      torqueZ *= tuckMul;
+      if (torqueZ || torqueY) {
+        ragdoll.bodies.forEach((b) => {
+          const k = b.mass * 0.55;
+          b.torque.z += torqueZ * k;
+          b.torque.y += torqueY * k;
+        });
+      }
+      if (tuck || trick.bomb) {
+        state.tuckedTime += dt;
+        ragdoll.bodies.forEach((b) => {
+          if (b === torso) return;
+          const dir = torso.position.vsub(b.position);
+          dir.scale((trick.bomb ? 4.2 : 2.2) * b.mass, dir);
+          b.force.vadd(dir, b.force);
+        });
+      }
+      if (sc.wind) {
+        ragdoll.bodies.forEach((b) => { b.force.x += sc.wind * b.mass * 0.35; });
+      }
+      state.airTime += dt;
+      state.flips += Math.abs(torso.angularVelocity.z) * dt / (Math.PI * 2);
+      state.twists += Math.abs(torso.angularVelocity.y) * dt / (Math.PI * 2);
+      $('flips').textContent = state.flips.toFixed(1);
+    }
+
+    const camPos = new THREE.Vector3();
+    function updateCamera(dt) {
+      if (!ragdoll) return;
+      const t = ragdoll.refs.upperBody.position;
+      const dist = state.phase === 'air' ? 16.2 : 13.8;
+      camPos.set(t.x - 1.6, Math.max(3.2, t.y + 1.8), dist);
+      camera.position.lerp(camPos, 1 - Math.pow(0.012, dt));
+      camera.lookAt(t.x + 2.6, Math.max(1.2, t.y), 0);
+    }
+
+    let acc = 0;
+    const STEP = 1 / 90;
+    let wobbleT = 0;
+
+    function animate(now) {
+      requestAnimationFrame(animate);
+      const dt = Math.min(0.033, (now - state.lastTime) / 1000);
+      state.lastTime = now;
+      wobbleT += dt;
+
+      if (state.phase === 'charge' && ragdoll) {
+        if (state.started && !menuOpen()) {
+          if (state.keys['Space'] && !state.charging) beginCharge();
+          if (state.charging) {
+            state.charge = Math.min(1, state.charge + dt * 1.15);
+            $('powerbar').style.width = (state.charge * 100).toFixed(1) + '%';
+          }
+        }
+        const b = boardOf();
+        const ox = b.wobble ? Math.sin(wobbleT * 2.2) * b.wobble : 0;
+        if (b.wobble) {
+          boardMesh.position.x = b.x + ox;
+          if (boardBody) boardBody.position.x = b.x + ox;
+        }
+        if (homePose.length) {
+          ragdoll.bodies.forEach((body, i) => {
+            body.position.set(homePose[i].p.x + ox, homePose[i].p.y, homePose[i].p.z);
+            body.quaternion.copy(homePose[i].q);
+            body.velocity.setZero();
+            body.angularVelocity.setZero();
+          });
+        }
+      }
+
+      applyAirControl(dt);
+      acc += dt;
+      while (acc >= STEP) { world.step(STEP); acc -= STEP; }
+
+      meshes.forEach(({ mesh, body }) => {
+        mesh.position.copy(body.position);
+        mesh.quaternion.copy(body.quaternion);
+      });
+
+      const t = now * 0.001;
+      waterN.offset.x = t * 0.03; waterN.offset.y = t * 0.02;
+      if (!IS_MOBILE) {
+        const pos = waterGeo.attributes.position;
+        for (let i = 0; i < pos.count; i++) {
+          const x = pos.getX(i), y = pos.getY(i);
+          pos.setZ(i, Math.sin(x * 0.35 + t * 1.6) * 0.12 + Math.cos(y * 0.28 + t * 1.1) * 0.08);
+        }
+        pos.needsUpdate = true;
+        waterGeo.computeVertexNormals();
+      }
+
+      coins3d.forEach((c) => {
+        if (c.taken) return;
+        c.mesh.rotation.z += dt * 2.5;
+        c.mesh.position.y += Math.sin(now * 0.004 + c.mesh.position.x) * 0.004;
+        if (ragdoll) {
+          const p = ragdoll.refs.upperBody.position;
+          if (c.mesh.position.distanceTo(new THREE.Vector3(p.x, p.y, p.z)) < 0.85) {
+            c.taken = true;
+            c.mesh.visible = false;
+            S.coin();
+            save.coins += 5;
+            state.score += 25;
+            $('coins').textContent = save.coins;
+            $('score').textContent = state.score;
+            persist();
+          }
+        }
+      });
+
+      for (let i = splashes.length - 1; i >= 0; i--) {
+        const s = splashes[i];
+        s.userData.v.y -= 18 * dt;
+        s.position.addScaledVector(s.userData.v, dt);
+        s.userData.life -= dt * 1.4;
+        s.scale.setScalar(Math.max(0.01, s.userData.life));
+        if (s.userData.life <= 0 || s.position.y < -0.2) {
+          scene.remove(s); splashes.splice(i, 1);
+        }
+      }
+
+      if (ragdoll && state.phase === 'air' && !state.splashDone) {
+        const head = ragdoll.refs.head.position;
+        const pelvis = ragdoll.refs.pelvis.position;
+        const torso = ragdoll.refs.upperBody.position;
+        const low = Math.min(head.y, pelvis.y, torso.y);
+        if (state.grace > 0) state.grace -= dt;
+        const leftBoard = torso.x > boardOf().x + 3.2;
+        const hitWater = low < 0.25 && (inPool(head) || inPool(pelvis) || inPool(torso));
+        const out = torso.y < -1.8 || torso.x > 30 || torso.x < -16;
+        const missed = state.grace <= 0 && leftBoard && low < 0.85 && !inPool(torso) && !inPool(head);
+        if (hitWater || out || missed) {
+          state.splashDone = true;
+          state.phase = 'splash';
+          const result = judgeDive();
+          if (hitWater) {
+            burstSplash(new THREE.Vector3(torso.x, 0.2, torso.z), result.kind === 'good' ? 55 : 28);
+            result.kind === 'good' ? S.splash() : S.smack();
+          } else {
+            S.smack();
+          }
+          if (result.kind === 'good') {
+            if (result.msg.includes('PERFECT')) S.perfect();
+            else S.good();
+          } else {
+            S.fail();
+          }
+          showBanner(result.msg, result.sub, result.kind);
+          if (result.kind === 'good') {
+            state.score += result.pts;
+            save.coins += 2 + Math.floor(result.pts / 80);
+            $('score').textContent = state.score;
+            $('coins').textContent = save.coins;
+            if (state.score > save.best) { save.best = state.score; $('best').textContent = save.best; }
+            persist();
+            unlockCheck();
+            setTimeout(() => { nextBoardOrStay(true); placeReady(); }, 2300);
+          } else {
+            persist();
+            setTimeout(() => { nextBoardOrStay(false); placeReady(); }, 2500);
+          }
+        }
+      }
+
+      updateCamera(dt);
+      renderer.render(scene, camera);
+    }
+
+    renderMenus();
+    renderTrickBar();
+    buildScene();
+    state.phase = 'menu';
+    requestAnimationFrame(animate);
+
+    function fitCamera() {
+      camera.aspect = innerWidth / innerHeight;
+      camera.fov = camera.aspect < 0.8 ? 58 : 46;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    }
+    fitCamera();
+    window.addEventListener('resize', fitCamera);
+    window.addEventListener('orientationchange', () => setTimeout(fitCamera, 200));
+    document.addEventListener('touchmove', (e) => {
+      if (!menuOpen()) e.preventDefault();
+    }, { passive: false });
+  </script>
+</body>
+</html>
